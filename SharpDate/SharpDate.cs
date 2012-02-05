@@ -91,8 +91,7 @@ namespace SharpDate
                         break;
                 }
             }
-
-            if (ApiURLs != null || ProcessesToKill != null || ApiURLs.Count() <= 1 || ProcessesToKill.Count() <= 1)
+            if (ApiURLs == null || ProcessesToKill == null)
             {
                 //Wrong arguments, notify and quit
                 MessageBox.Show("Wrong arguments specified!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -269,7 +268,7 @@ namespace SharpDate
         {
             if (e.Result.GetType().Name == "String")
             {
-                MessageBox.Show("MKV Chapterizer will now be closed to prepare for the update, \r\nso please save all your work before proceeding!", "Update Downloaded Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("The program will now be closed to prepare for the update, \r\nso please save all your work before proceeding!", "Update Downloaded Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 ExitPrograms(ProcessesToKill);
                 Process.Start("update\\" + e.Result);
                 Application.Exit();
