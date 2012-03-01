@@ -38,24 +38,24 @@
             // btnCancel
             // 
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnCancel.Location = new System.Drawing.Point(284, 12);
+            this.btnCancel.Location = new System.Drawing.Point(310, 12);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 7;
             this.btnCancel.Text = "Cancel";
             this.btnCancel.UseVisualStyleBackColor = true;
-            this.btnCancel.Click +=new System.EventHandler(btnCancel_Click);
+            this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
             // 
             // btnUpdate
             // 
             this.btnUpdate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnUpdate.Location = new System.Drawing.Point(203, 12);
+            this.btnUpdate.Location = new System.Drawing.Point(229, 12);
             this.btnUpdate.Name = "btnUpdate";
             this.btnUpdate.Size = new System.Drawing.Size(75, 23);
             this.btnUpdate.TabIndex = 6;
             this.btnUpdate.Text = "Update";
             this.btnUpdate.UseVisualStyleBackColor = true;
-            this.btnUpdate.Click +=new System.EventHandler(btnUpdate_Click);
+            this.btnUpdate.Click += new System.EventHandler(this.btnUpdate_Click);
             // 
             // pbarDownloadProgress
             // 
@@ -63,7 +63,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pbarDownloadProgress.Location = new System.Drawing.Point(12, 41);
             this.pbarDownloadProgress.Name = "pbarDownloadProgress";
-            this.pbarDownloadProgress.Size = new System.Drawing.Size(347, 23);
+            this.pbarDownloadProgress.Size = new System.Drawing.Size(373, 23);
             this.pbarDownloadProgress.TabIndex = 5;
             // 
             // txtChangelog
@@ -76,7 +76,7 @@
             this.txtChangelog.Name = "txtChangelog";
             this.txtChangelog.ReadOnly = true;
             this.txtChangelog.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtChangelog.Size = new System.Drawing.Size(347, 156);
+            this.txtChangelog.Size = new System.Drawing.Size(373, 156);
             this.txtChangelog.TabIndex = 4;
             // 
             // lblNewUpdate
@@ -91,7 +91,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(371, 238);
+            this.ClientSize = new System.Drawing.Size(397, 238);
             this.Controls.Add(this.lblNewUpdate);
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.btnUpdate);
@@ -102,6 +102,7 @@
             this.MinimizeBox = false;
             this.Name = "SharpDate";
             this.ShowIcon = false;
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "New version available!";
             this.ResumeLayout(false);
             this.PerformLayout();
