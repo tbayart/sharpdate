@@ -104,6 +104,7 @@
             this.ShowIcon = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "New version available!";
+            this.TopMost = true;
             this.ResumeLayout(false);
             this.PerformLayout();
 

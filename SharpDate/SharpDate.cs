@@ -16,17 +16,34 @@ namespace SharpDate
     public partial class SharpDate : Form
     {
 
+        #region Fields & Delegates
         private string[] pUpdateInfo;
         private string pMainExe;
         private string[] pApiURLs;
         private int[] pPids;
         private Version pLocalVersion;
-
-        public delegate void DownloadProgressDelegate(int percProgress);
-
         BackgroundWorker bwUpdateProgram = new BackgroundWorker();
         BackgroundWorker bwCheckUpdates = new BackgroundWorker();
 
+        public delegate DownloadAction DownloadProgressDelegate(int percProgress);
+        #endregion
+
+        #region Enumerators
+        public enum DownloadAction
+        {
+            Continue,
+            Cancel
+        }
+
+        public enum BwResult
+        {
+            Success,
+            Cancelled,
+            Error
+        }
+        #endregion
+
+        #region Properties
         public string[] UpdateInfo
         {
             get { return pUpdateInfo; }
@@ -56,6 +73,7 @@ namespace SharpDate
             get { return pApiURLs; }
             set { pApiURLs = value; }
         }
+        #endregion
 
         public SharpDate()
         {
@@ -210,74 +228,7 @@ namespace SharpDate
             btnUpdate.Enabled = false;
         }
 
-        private void bwUpdateProgram_DoWork(object sender, DoWorkEventArgs e)
-        {
-            //Create workdir
-            try
-            {
-                Directory.CreateDirectory("update");
-            }
-            catch (Exception)
-            {
-                return;
-            }
-
-            //Download the updatefile
-
-            DownloadProgressDelegate progressUpdate = new DownloadProgressDelegate(downloadFileProgressChanged);
-            bool result = false;
-
-            //Check if the updateurl is any specific type
-            //Not needed anymore...
-            /*
-            switch (UpdateInfo[5])
-            {
-                case "freedns.afraid.org":
-
-                    //The real URL needs to be fetched
-                    UpdateInfo[4] = FetchFreeDNSURL(UpdateInfo[4]);
-                    break;
-            }
-            */
-
-            try
-            {
-                string url = UpdateInfo[4] + UpdateInfo[6] + UpdateInfo[1] + ".exe";
-                result = Download(url, "update\\" + UpdateInfo[1] + ".exe", progressUpdate);
-            }
-            catch (Exception ex)
-            {
-                e.Result = ex;
-                return;
-            }
-
-            if (result == true)
-            {
-                //Download succeeded, notify the user and start the setup
-                e.Result = UpdateInfo[1] + ".exe";
-            }
-
-        }
-
-        private void bwUpdateProgram_ProgressChanged(object sender, ProgressChangedEventArgs e)
-        {
-            pbarDownloadProgress.Value = e.ProgressPercentage;
-        }
-
-        private void bwUpdateProgram_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
-        {
-            if (e.Result.GetType().Name == "String")
-            {
-                MessageBox.Show("The program will now be closed to prepare for the update, \r\nso please save all your work before proceeding!", "Update Downloaded Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                ExitPrograms(ProcessesToKill);
-                Process.Start("update\\" + e.Result);
-                Application.Exit();
-            }
-            else if (e.Result.GetType().Name == "Exception")
-            {
-                MessageBox.Show("Error Occured: \r\n" + (Exception)e.Result, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
+        
 
         //This function is apparently not needed anymore
         private string FetchFreeDNSURL(string url)
@@ -296,9 +247,17 @@ namespace SharpDate
             return realURL;
         }
 
-        private void downloadFileProgressChanged(int percentage)
+        private DownloadAction downloadFileProgressChanged(int percentage)
         {
             bwUpdateProgram.ReportProgress(percentage);
+            if (bwUpdateProgram.CancellationPending)
+            {
+                return DownloadAction.Cancel;
+            }
+            else
+            {
+                return DownloadAction.Continue;
+            }
         }
 
         /// <summary>
@@ -355,7 +314,23 @@ namespace SharpDate
                         {
                             perc = newPerc;
                             if (progressDelegate != null)
-                                progressDelegate(perc);
+                            {
+                                if (progressDelegate(perc) == DownloadAction.Cancel)
+                                {
+                                    streamLocal.Close();
+
+                                    try
+                                    {
+                                        File.Delete(fullLocalPath);
+                                    }
+                                    catch (Exception)
+                                    {
+                                        return false;
+                                    }
+
+                                    return false;
+                                }
+                            }
                         }
                     }
                 }
@@ -372,7 +347,10 @@ namespace SharpDate
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
-
+            if (bwUpdateProgram.IsBusy)
+            {
+                bwUpdateProgram.CancelAsync();
+            }
         }
 
         private bool CleanUp()
@@ -392,5 +370,89 @@ namespace SharpDate
             //Clean-up succeeded
             return true;
         }
+
+        #region Backgroundworker
+        private void bwUpdateProgram_DoWork(object sender, DoWorkEventArgs e)
+        {
+            //Create workdir
+            try
+            {
+                //TODO: Delete this afterwards
+                Directory.CreateDirectory("update");
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            //Download the updatefile
+
+            DownloadProgressDelegate progressUpdate = new DownloadProgressDelegate(downloadFileProgressChanged);
+            bool result = false;
+
+            //Check if the updateurl is any specific type
+            //Not needed anymore...
+            /*
+            switch (UpdateInfo[5])
+            {
+                case "freedns.afraid.org":
+
+                    //The real URL needs to be fetched
+                    UpdateInfo[4] = FetchFreeDNSURL(UpdateInfo[4]);
+                    break;
+            }
+            */
+
+            try
+            {
+                string url = UpdateInfo[4] + UpdateInfo[6] + UpdateInfo[1] + ".exe";
+                result = Download(url, "update\\" + UpdateInfo[1] + ".exe", progressUpdate);
+            }
+            catch (Exception ex)
+            {
+                e.Result = new object[] { BwResult.Error, ex };
+                return;
+            }
+
+            if (result == true)
+            {
+                //Download succeeded, notify the user and start the setup
+                e.Result = new object[] { BwResult.Success, UpdateInfo[1] + ".exe" };
+            }
+            else
+            {
+                bwUpdateProgram.ReportProgress(99);
+                //Something went wrong OR the user cancelled
+                e.Result = new object[] { BwResult.Cancelled };
+            }
+        }
+
+        private void bwUpdateProgram_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            pbarDownloadProgress.Value = e.ProgressPercentage;
+        }
+
+        private void bwUpdateProgram_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            object[] result = (object[])e.Result;
+
+            if ((BwResult)result[0] == BwResult.Success)
+            {
+                MessageBox.Show("The program will now be closed to prepare for the update, \r\nso please save all your work before proceeding!", "Update Downloaded Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ExitPrograms(ProcessesToKill);
+                Process.Start(Path.Combine("update", (string)result[1]));
+                Application.Exit();
+            }
+            else if ((BwResult)result[0] == BwResult.Error)
+            {
+                MessageBox.Show("Error Occured: \r\n" + (Exception)result[1], "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            else if ((BwResult)result[0] == BwResult.Cancelled)
+            {
+                //Exit the program
+                this.Close();
+            }
+        }
+        #endregion
     }
 }
