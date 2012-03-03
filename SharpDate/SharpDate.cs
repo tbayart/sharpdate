@@ -351,6 +351,10 @@ namespace SharpDate
             {
                 bwUpdateProgram.CancelAsync();
             }
+            else
+            {
+                this.Close();
+            }
         }
 
         private bool CleanUp()
@@ -377,7 +381,6 @@ namespace SharpDate
             //Create workdir
             try
             {
-                //TODO: Delete this afterwards
                 Directory.CreateDirectory("update");
             }
             catch (Exception)
@@ -449,7 +452,6 @@ namespace SharpDate
             }
             else if ((BwResult)result[0] == BwResult.Cancelled)
             {
-                //Exit the program
                 this.Close();
             }
         }
