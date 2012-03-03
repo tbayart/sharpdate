@@ -228,8 +228,6 @@ namespace SharpDate
             btnUpdate.Enabled = false;
         }
 
-        
-
         //This function is apparently not needed anymore
         private string FetchFreeDNSURL(string url)
         {
@@ -357,13 +355,13 @@ namespace SharpDate
             }
         }
 
-        private bool CleanUp()
+        private bool CleanUp(string dir)
         {
-            if (Directory.Exists("update\\"))
+            if (Directory.Exists(dir))
             {
                 try
                 {
-                    Directory.Delete("update\\", true);
+                    Directory.Delete(dir, true);
                 }
                 catch (Exception)
                 {
@@ -379,12 +377,14 @@ namespace SharpDate
         private void bwUpdateProgram_DoWork(object sender, DoWorkEventArgs e)
         {
             //Create workdir
+            string workDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             try
             {
-                Directory.CreateDirectory("update");
+                Directory.CreateDirectory(workDir);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                e.Result = new object[] { BwResult.Error, ex };
                 return;
             }
 
@@ -409,24 +409,24 @@ namespace SharpDate
             try
             {
                 string url = UpdateInfo[4] + UpdateInfo[6] + UpdateInfo[1] + ".exe";
-                result = Download(url, "update\\" + UpdateInfo[1] + ".exe", progressUpdate);
+                result = Download(url, Path.Combine(workDir, UpdateInfo[1] + ".exe"), progressUpdate);
             }
             catch (Exception ex)
             {
-                e.Result = new object[] { BwResult.Error, ex };
+                e.Result = new object[] {workDir, BwResult.Error, ex };
                 return;
             }
 
             if (result == true)
             {
                 //Download succeeded, notify the user and start the setup
-                e.Result = new object[] { BwResult.Success, UpdateInfo[1] + ".exe" };
+                e.Result = new object[] {workDir, BwResult.Success, Path.Combine(workDir, UpdateInfo[1] + ".exe") };
             }
             else
             {
                 bwUpdateProgram.ReportProgress(99);
                 //Something went wrong OR the user cancelled
-                e.Result = new object[] { BwResult.Cancelled };
+                e.Result = new object[] {workDir, BwResult.Cancelled };
             }
         }
 
@@ -439,19 +439,22 @@ namespace SharpDate
         {
             object[] result = (object[])e.Result;
 
-            if ((BwResult)result[0] == BwResult.Success)
+            if ((BwResult)result[1] == BwResult.Success)
             {
                 MessageBox.Show("The program will now be closed to prepare for the update, \r\nso please save all your work before proceeding!", "Update Downloaded Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 ExitPrograms(ProcessesToKill);
-                Process.Start(Path.Combine("update", (string)result[1]));
+                //TODO: Change to workdir
+                Process.Start((string)result[1]);
                 Application.Exit();
             }
-            else if ((BwResult)result[0] == BwResult.Error)
+            else if ((BwResult)result[1] == BwResult.Error)
             {
+                CleanUp((string)result[0]);
                 MessageBox.Show("Error Occured: \r\n" + (Exception)result[1], "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            else if ((BwResult)result[0] == BwResult.Cancelled)
+            else if ((BwResult)result[1] == BwResult.Cancelled)
             {
+                CleanUp((string)result[0]);
                 this.Close();
             }
         }
