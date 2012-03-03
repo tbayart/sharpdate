@@ -351,7 +351,7 @@ namespace SharpDate
             }
             else
             {
-                this.Close();
+                Application.Exit();
             }
         }
 
@@ -371,6 +371,18 @@ namespace SharpDate
 
             //Clean-up succeeded
             return true;
+        }
+
+        private void SharpDate_FormClosing(Object sender, FormClosingEventArgs e)
+        {
+            if (bwUpdateProgram.IsBusy)
+            {
+                bwUpdateProgram.CancelAsync();
+            }
+            else
+            {
+                Application.Exit();
+            }
         }
 
         #region Backgroundworker
@@ -455,7 +467,7 @@ namespace SharpDate
             else if ((BwResult)result[1] == BwResult.Cancelled)
             {
                 CleanUp((string)result[0]);
-                this.Close();
+                Application.Exit();
             }
         }
         #endregion
