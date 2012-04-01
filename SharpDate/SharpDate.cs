@@ -396,7 +396,7 @@ namespace SharpDate
             {
                 MessageBox.Show("The program will now be closed to prepare for the update, \r\nso please save all your work before proceeding!", "Update Downloaded Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 ExitPrograms(ProcessesToKill);
-                Process.Start((string)result[1]);
+                Process.Start((string)result[2]);
                 Application.Exit();
             }
             else if ((BwResult)result[1] == BwResult.Error)
