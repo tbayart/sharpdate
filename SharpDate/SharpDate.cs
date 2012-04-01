@@ -1,7 +1,5 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using System.Net;
@@ -9,7 +7,6 @@ using System.Xml.Linq;
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
-using System.Runtime.InteropServices;
 
 namespace SharpDate
 {
@@ -23,7 +20,6 @@ namespace SharpDate
         private int[] pPids;
         private Version pLocalVersion;
         BackgroundWorker bwUpdateProgram = new BackgroundWorker();
-        BackgroundWorker bwCheckUpdates = new BackgroundWorker();
 
         public delegate DownloadAction DownloadProgressDelegate(int percProgress);
         #endregion
@@ -88,7 +84,7 @@ namespace SharpDate
                 switch (args[i])
                 {
                     case "-pids":
-                        ProcessesToKill = args[i + 1].Split(',').Select(x => int.Parse(x)).ToArray();
+                        ProcessesToKill = args[i + 1].Split(',').Select(int.Parse).ToArray();
                         break;
 
                     case "-apiurls":
@@ -138,13 +134,11 @@ namespace SharpDate
 
         private bool UpdateAvailable()
         {
-            FileVersionInfo fi;
-
             if (LocalVersion == null)
             {
                 if (File.Exists(MainExe))
                 {
-                    fi = FileVersionInfo.GetVersionInfo(MainExe);
+                    FileVersionInfo fi = FileVersionInfo.GetVersionInfo(MainExe);
                     LocalVersion = Version.Parse(fi.FileVersion);
                 }
                 else
@@ -166,14 +160,7 @@ namespace SharpDate
                 return false;
             }
 
-            if (newVersion > LocalVersion)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            return newVersion > LocalVersion;
         }
 
         private void ExitPrograms(int[] pids)
@@ -188,7 +175,7 @@ namespace SharpDate
         private string[] GetUpdateInfo(string[] APIUrls)
         {
             WebClient client = new WebClient();
-            string xml = string.Empty;
+            string xml;
 
             try
             {
@@ -248,20 +235,13 @@ namespace SharpDate
         private DownloadAction downloadFileProgressChanged(int percentage)
         {
             bwUpdateProgram.ReportProgress(percentage);
-            if (bwUpdateProgram.CancellationPending)
-            {
-                return DownloadAction.Cancel;
-            }
-            else
-            {
-                return DownloadAction.Continue;
-            }
+            return bwUpdateProgram.CancellationPending ? DownloadAction.Cancel : DownloadAction.Continue;
         }
 
         /// <summary>
         /// Downloads the specified URL. Returns true if success.
         /// </summary>
-        /// <param name="uri">The URL.</param>
+        /// <param name="url">The URL.</param>
         /// <param name="localPath">The local path.</param>
         /// <param name="progressDelegate">The progress delegate.</param>
         /// <returns></returns>
@@ -272,20 +252,16 @@ namespace SharpDate
 
             try
             {
-                /// Get the name of the remote file.
+                // Get the name of the remote file.
                 Uri remoteUri = new Uri(url);
                 string fileName = Path.GetFileName(remoteUri.LocalPath);
 
-                if (Path.GetFileName(localPath).Length == 0)
-                    fullLocalPath = Path.Combine(localPath, fileName);
-                else
-                    fullLocalPath = localPath;
+                fullLocalPath = Path.GetFileName(localPath).Length == 0 ? Path.Combine(localPath, fileName) : localPath;
 
-                /// Have to get size of remote object through the webrequest as not available on remote files,
-                /// although it does work on local files.
+                // Have to get size of remote object through the webrequest as not available on remote files,
+                // although it does work on local files.
                 using (WebResponse response = WebRequest.Create(url).GetResponse())
-                using (Stream stream = response.GetResponseStream())
-                    remoteSize = response.ContentLength;
+                using (response.GetResponseStream()) remoteSize = response.ContentLength;
 
             }
             catch (Exception ex)
@@ -293,7 +269,7 @@ namespace SharpDate
                 throw new ApplicationException(string.Format("Error connecting to URI (Exception={0})", ex.Message), ex);
             }
 
-            int bytesRead = 0, bytesReadTotal = 0;
+            int bytesReadTotal = 0;
 
             try
             {
@@ -303,11 +279,12 @@ namespace SharpDate
                 {
                     byte[] byteBuffer = new byte[1024 * 1024 * 2]; // 2 meg buffer although in testing only got to 10k max usage.
                     int perc = 0;
+                    int bytesRead;
                     while ((bytesRead = streamRemote.Read(byteBuffer, 0, byteBuffer.Length)) > 0)
                     {
                         bytesReadTotal += bytesRead;
                         streamLocal.Write(byteBuffer, 0, bytesRead);
-                        int newPerc = (int)((double)bytesReadTotal / (double)remoteSize * 100);
+                        int newPerc = (int)(bytesReadTotal / (double)remoteSize * 100);
                         if (newPerc > perc)
                         {
                             perc = newPerc;
@@ -355,7 +332,7 @@ namespace SharpDate
             }
         }
 
-        private bool CleanUp(string dir)
+        private void CleanUp(string dir)
         {
             if (Directory.Exists(dir))
             {
@@ -365,12 +342,10 @@ namespace SharpDate
                 }
                 catch (Exception)
                 {
-                    return false;
                 }
             }
 
             //Clean-up succeeded
-            return true;
         }
 
         private void SharpDate_FormClosing(Object sender, FormClosingEventArgs e)
@@ -403,7 +378,7 @@ namespace SharpDate
             //Download the updatefile
 
             DownloadProgressDelegate progressUpdate = new DownloadProgressDelegate(downloadFileProgressChanged);
-            bool result = false;
+            bool result;
 
             //Check if the updateurl is any specific type
             //Not needed anymore...
@@ -429,7 +404,7 @@ namespace SharpDate
                 return;
             }
 
-            if (result == true)
+            if (result)
             {
                 //Download succeeded, notify the user and start the setup
                 e.Result = new object[] {workDir, BwResult.Success, Path.Combine(workDir, UpdateInfo[1] + ".exe") };
@@ -455,14 +430,13 @@ namespace SharpDate
             {
                 MessageBox.Show("The program will now be closed to prepare for the update, \r\nso please save all your work before proceeding!", "Update Downloaded Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 ExitPrograms(ProcessesToKill);
-                //TODO: Change to workdir
                 Process.Start((string)result[1]);
                 Application.Exit();
             }
             else if ((BwResult)result[1] == BwResult.Error)
             {
                 CleanUp((string)result[0]);
-                MessageBox.Show("Error Occured: \r\n" + (Exception)result[1], "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Error Occured: \r\n" + result[1], "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             else if ((BwResult)result[1] == BwResult.Cancelled)
             {
