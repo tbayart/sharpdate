@@ -6,7 +6,6 @@ using System.Net;
 using System.Xml.Linq;
 using System.Diagnostics;
 using System.IO;
-using System.Text.RegularExpressions;
 
 namespace SharpDate
 {
@@ -14,10 +13,7 @@ namespace SharpDate
     {
 
         #region Fields & Delegates
-        private string[] pUpdateInfo;
-        private string pMainExe;
-        private string[] pApiURLs;
-        private int[] pPids;
+
         private Version pLocalVersion;
         BackgroundWorker bwUpdateProgram = new BackgroundWorker();
 
@@ -40,36 +36,28 @@ namespace SharpDate
         #endregion
 
         #region Properties
-        public string[] UpdateInfo
-        {
-            get { return pUpdateInfo; }
-            set { pUpdateInfo = value; }
-        }
 
-        public int[] ProcessesToKill
-        {
-            get { return pPids; }
-            set { pPids = value; }
-        }
-
-        public string MainExe
-        {
-            get { return pMainExe; }
-            set { pMainExe = value; }
-        }
-
+        public int[] ProcessesToKill { get; set; }
+        public string MainExe { get; set; }
         public Version LocalVersion
         {
             get { return pLocalVersion; }
             set { pLocalVersion = value; }
         }
+        public string[] ApiURLs { get; set; }
+        public UpdateInfo CurrentUpdateInfo { get; set; }
 
-        public string[] ApiURLs
-        {
-            get { return pApiURLs; }
-            set { pApiURLs = value; }
-        }
         #endregion
+
+        public class UpdateInfo
+        {
+            public string Name { get; set; }
+            public Version Version { get; set; }
+            public bool Beta { get; set; }
+            public string Changelog { get; set; }
+            public string DownloadURL { get; set; }
+            public string DownloadPath { get; set; }
+        }
 
         public SharpDate()
         {
@@ -122,8 +110,8 @@ namespace SharpDate
 
             if (UpdateAvailable())
             {
-                lblNewUpdate.Text = string.Format("Version {0} is available for download", UpdateInfo[1]);
-                txtChangelog.Text = UpdateInfo[3];
+                lblNewUpdate.Text = string.Format("Version {0} is available for download", CurrentUpdateInfo.Version.ToString());
+                txtChangelog.Text = CurrentUpdateInfo.Changelog;
                 btnUpdate.Text = "Update";
             }
             else
@@ -146,13 +134,13 @@ namespace SharpDate
                     return false;
                 }
             }
-            UpdateInfo = GetUpdateInfo(ApiURLs);
+            CurrentUpdateInfo = GetUpdateInfo(ApiURLs);
 
             Version newVersion;
 
-            if (UpdateInfo != null)
+            if (CurrentUpdateInfo != null)
             {
-                newVersion = new Version(UpdateInfo[1]);
+                newVersion = CurrentUpdateInfo.Version;
             }
             else
             {
@@ -172,7 +160,7 @@ namespace SharpDate
             }
         }
 
-        private string[] GetUpdateInfo(string[] APIUrls)
+        private UpdateInfo GetUpdateInfo(string[] APIUrls)
         {
             WebClient client = new WebClient();
             string xml;
@@ -196,40 +184,21 @@ namespace SharpDate
             XDocument xdoc = XDocument.Parse(xml);
             XElement xe = xdoc.Root.Element("program");
 
-            string[] data = new string[7];
+            UpdateInfo newUpdateInfo = new UpdateInfo();
 
-            data[0] = xe.Element("name").Value;
-            data[1] = xe.Element("version").Value;
-            data[2] = xe.Element("beta").Value;
-            data[3] = xe.Element("changelog").Value;
-            data[4] = xe.Element("downloadURL").Value;
-            data[5] = xe.Element("downloadURLType").Value;
-            data[6] = xe.Element("downloadPath").Value;
+            newUpdateInfo.Name = xe.Element("name").Value;
+            newUpdateInfo.Version = Version.Parse(xe.Element("version").Value);
+            newUpdateInfo.Beta = bool.Parse(xe.Element("beta").Value);
+            newUpdateInfo.Changelog = xe.Element("changelog").Value;
+            newUpdateInfo.DownloadURL = xe.Element("downloadURL").Value;
 
-            return data;
+            return newUpdateInfo;
         }
 
         private void btnUpdate_Click(object sender, EventArgs e)
         {
             bwUpdateProgram.RunWorkerAsync();
             btnUpdate.Enabled = false;
-        }
-
-        //This function is apparently not needed anymore
-        private string FetchFreeDNSURL(string url)
-        {
-            WebClient client = new WebClient();
-            string html = client.DownloadString(url);
-
-            //Find the frame-tag that holds the redirect URL
-            Regex regex = new Regex("<frame target=\"random_name_not_taken2\" name=\"random_name_not_taken2\" src=\".+\" border=\"0\" noresize>", RegexOptions.IgnoreCase);
-            Match match = regex.Match(html);
-
-            regex = new Regex("src=\".*?\"");
-
-            string realURL = regex.Match(match.Value).Value.Substring(5).Replace("\"", "");
-
-            return realURL;
         }
 
         private DownloadAction downloadFileProgressChanged(int percentage)
@@ -395,8 +364,8 @@ namespace SharpDate
 
             try
             {
-                string url = UpdateInfo[4] + UpdateInfo[6] + UpdateInfo[1] + ".exe";
-                result = Download(url, Path.Combine(workDir, UpdateInfo[1] + ".exe"), progressUpdate);
+                string url = CurrentUpdateInfo.DownloadURL + CurrentUpdateInfo.Version + ".exe";
+                result = Download(url, Path.Combine(workDir, CurrentUpdateInfo.Version + ".exe"), progressUpdate);
             }
             catch (Exception ex)
             {
@@ -407,7 +376,7 @@ namespace SharpDate
             if (result)
             {
                 //Download succeeded, notify the user and start the setup
-                e.Result = new object[] {workDir, BwResult.Success, Path.Combine(workDir, UpdateInfo[1] + ".exe") };
+                e.Result = new object[] { workDir, BwResult.Success, Path.Combine(workDir, CurrentUpdateInfo.Version + ".exe") };
             }
             else
             {
