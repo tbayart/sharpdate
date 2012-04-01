@@ -56,7 +56,7 @@ namespace SharpDate
             public bool Beta { get; set; }
             public string Changelog { get; set; }
             public string DownloadURL { get; set; }
-            public string DownloadPath { get; set; }
+            public string CompleteDownloadURL { get; set; }
         }
 
         public SharpDate()
@@ -187,10 +187,11 @@ namespace SharpDate
             UpdateInfo newUpdateInfo = new UpdateInfo();
 
             newUpdateInfo.Name = xe.Element("name").Value;
-            newUpdateInfo.Version = Version.Parse(xe.Element("version").Value);
-            newUpdateInfo.Beta = bool.Parse(xe.Element("beta").Value);
-            newUpdateInfo.Changelog = xe.Element("changelog").Value;
-            newUpdateInfo.DownloadURL = xe.Element("downloadURL").Value;
+            newUpdateInfo.Version = Version.Parse(xe.Element("version") != null ? xe.Element("version").Value : "0");
+            newUpdateInfo.Beta = xe.Element("beta") != null && xe.Element("beta").Value.Equals("1");
+            newUpdateInfo.Changelog = xe.Element("changelog") != null ? xe.Element("changelog").Value : string.Empty;
+            newUpdateInfo.DownloadURL = xe.Element("downloadURL") != null ? xe.Element("downloadURL").Value : string.Empty;
+            newUpdateInfo.CompleteDownloadURL = xe.Element("completeDownloadURL") != null ? xe.Element("completeDownloadURL").Value : string.Empty;
 
             return newUpdateInfo;
         }
@@ -349,22 +350,18 @@ namespace SharpDate
             DownloadProgressDelegate progressUpdate = new DownloadProgressDelegate(downloadFileProgressChanged);
             bool result;
 
-            //Check if the updateurl is any specific type
-            //Not needed anymore...
-            /*
-            switch (UpdateInfo[5])
-            {
-                case "freedns.afraid.org":
-
-                    //The real URL needs to be fetched
-                    UpdateInfo[4] = FetchFreeDNSURL(UpdateInfo[4]);
-                    break;
-            }
-            */
-
             try
             {
-                string url = CurrentUpdateInfo.DownloadURL + CurrentUpdateInfo.Version + ".exe";
+                string url;
+                if (CurrentUpdateInfo.CompleteDownloadURL != string.Empty)
+                {
+                    url = CurrentUpdateInfo.CompleteDownloadURL;
+                }
+                else
+                {
+                    url = CurrentUpdateInfo.DownloadURL + CurrentUpdateInfo.Version + ".exe";
+                }
+
                 result = Download(url, Path.Combine(workDir, CurrentUpdateInfo.Version + ".exe"), progressUpdate);
             }
             catch (Exception ex)
