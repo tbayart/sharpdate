@@ -105,7 +105,6 @@
             this.Name = "SharpDate";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "New version available!";
-            this.TopMost = true;
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.SharpDate_FormClosing);
             this.ResumeLayout(false);
             this.PerformLayout();
