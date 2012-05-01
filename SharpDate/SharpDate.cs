@@ -93,10 +93,36 @@ namespace SharpDate
                         break;
                 }
             }
-            if (ApiURLs == null || ProcessesToKill == null)
+
+            if (ApiURLs == null)
             {
-                //Wrong arguments, notify and quit
-                MessageBox.Show("Wrong arguments specified!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("You didn't specify any API urls!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Environment.Exit(0);
+            }
+
+            if (LocalVersion == null)
+            {
+                if (MainExe == null)
+                {
+                    MessageBox.Show("You need to supply either the mainexe or a version!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(0);
+                }
+
+                if (File.Exists(MainExe))
+                {
+                    FileVersionInfo fi = FileVersionInfo.GetVersionInfo(MainExe);
+                    LocalVersion = Version.Parse(fi.FileVersion);
+                }
+                else
+                {
+                    MessageBox.Show("The specified mainexe can't be found!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(0);
+                }
+            }
+
+            if (ProcessesToKill == null && MainExe == null)
+            {
+                MessageBox.Show("You need to supply PIDs and/or a mainexe", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(0);
             }
 
@@ -113,6 +139,7 @@ namespace SharpDate
                 lblNewUpdate.Text = string.Format("Version {0} is available for download", CurrentUpdateInfo.Version.ToString());
                 txtChangelog.Text = CurrentUpdateInfo.Changelog;
                 btnUpdate.Text = "Update";
+                BringToFront();
             }
             else
             {
@@ -122,33 +149,27 @@ namespace SharpDate
 
         private bool UpdateAvailable()
         {
-            if (LocalVersion == null)
-            {
-                if (File.Exists(MainExe))
-                {
-                    FileVersionInfo fi = FileVersionInfo.GetVersionInfo(MainExe);
-                    LocalVersion = Version.Parse(fi.FileVersion);
-                }
-                else
-                {
-                    return false;
-                }
-            }
             CurrentUpdateInfo = GetUpdateInfo(ApiURLs);
-
-            Version newVersion;
 
             if (CurrentUpdateInfo != null)
             {
-                newVersion = CurrentUpdateInfo.Version;
-            }
-            else
-            {
-                MessageBox.Show("Failed to check for updates, maybe the update server is down?", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return false;
-            }
+                if (CurrentUpdateInfo.DownloadURL == string.Empty && CurrentUpdateInfo.CompleteDownloadURL == string.Empty)
+                {
+                    //We can't update since no update url was provided
+                    return false;
+                }
 
-            return newVersion > LocalVersion;
+                if (CurrentUpdateInfo.Version == Version.Parse("0.0"))
+                {
+                    //We don't know if an update is available, so just assume no
+                    return false;
+                }
+
+                return CurrentUpdateInfo.Version > LocalVersion;
+            }
+            
+            MessageBox.Show("Failed to check for updates, maybe the update server is down?", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return false;
         }
 
         private void ExitPrograms(int[] pids)
@@ -171,7 +192,12 @@ namespace SharpDate
             }
             catch (WebException)
             {
-                //Failed to connect, try the other URL
+                //Failed to connect, try the other URL if there is one
+                if (APIUrls.Length == 1)
+                {
+                    //Otherwise just quit because we failed
+                    return null;
+                }
                 try
                 {
                     xml = client.DownloadString(new Uri(APIUrls[1]));
@@ -181,15 +207,16 @@ namespace SharpDate
                     return null;
                 }
             }
+
             XDocument xdoc = XDocument.Parse(xml);
             XElement xe = xdoc.Root.Element("program");
 
             UpdateInfo newUpdateInfo = new UpdateInfo();
 
             newUpdateInfo.Name = xe.Element("name").Value;
-            newUpdateInfo.Version = Version.Parse(xe.Element("version") != null ? xe.Element("version").Value : "0");
+            newUpdateInfo.Version = Version.Parse(xe.Element("version") != null ? xe.Element("version").Value : "0.0");
             newUpdateInfo.Beta = xe.Element("beta") != null && xe.Element("beta").Value.Equals("1");
-            newUpdateInfo.Changelog = xe.Element("changelog") != null ? xe.Element("changelog").Value : string.Empty;
+            newUpdateInfo.Changelog = xe.Element("changelog") != null ? xe.Element("changelog").Value : "No changelog is availble for this version";
             newUpdateInfo.DownloadURL = xe.Element("downloadURL") != null ? xe.Element("downloadURL").Value : string.Empty;
             newUpdateInfo.CompleteDownloadURL = xe.Element("completeDownloadURL") != null ? xe.Element("completeDownloadURL").Value : string.Empty;
 
@@ -395,7 +422,19 @@ namespace SharpDate
             if ((BwResult)result[1] == BwResult.Success)
             {
                 MessageBox.Show("The program will now be closed to prepare for the update, \r\nso please save all your work before proceeding!", "Update Downloaded Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                ExitPrograms(ProcessesToKill);
+
+                if (ProcessesToKill != null)
+                {
+                    ExitPrograms(ProcessesToKill);
+                }
+                else
+                {
+                    Process[] prcs = Process.GetProcessesByName(MainExe.Substring(0, MainExe.Length - 4));
+                    for (int i = 0; i < prcs.Count(); i++)
+                    {
+                        prcs[i].CloseMainWindow();
+                    }
+                }
                 Process.Start((string)result[2]);
                 Application.Exit();
             }
